@@ -2,7 +2,6 @@ package pubsub
 
 import (
 	"sync"
-	"time"
 
 	"golang.org/x/net/context"
 
@@ -57,54 +56,11 @@ func NewDefaultManager(clusterName, projectID string, providers provider.Provide
 }
 
 // Start - start scanning deployment for changes
-func (s *DefaultManager) Start(ctx context.Context) error {
+func (s *DefaultManager) Start(ctx context.Context) {
 	// setting root context
 	s.ctx = ctx
 
-	// initial scan
-	err := s.scan(ctx)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Error("trigger.pubsub.manager: scan failed")
-	}
-
-	ticker := time.NewTicker(time.Duration(s.scanTick) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			log.Debug("performing scan")
-			err := s.scan(ctx)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"error": err,
-				}).Error("trigger.pubsub.manager: scan failed")
-			}
-		}
-	}
-}
-
-func (s *DefaultManager) scan(ctx context.Context) error {
-	trackedImages, err := s.providers.TrackedImages()
-	if err != nil {
-		return err
-	}
-
-	for _, trackedImage := range trackedImages {
-		if !isGoogleContainerRegistry(trackedImage.Image.Registry()) {
-			log.Debugf("registry %s is not a GCR, skipping", trackedImage.Image.Registry())
-			continue
-		}
-
-		// uri
-		// https://cloud.google.com/container-registry/docs/configuring-notifications
-		s.ensureSubscription("gcr")
-	}
-	return nil
+	s.ensureSubscription("gcr")
 }
 
 func (s *DefaultManager) subscribed(gcrURI string) bool {
